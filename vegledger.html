@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VegLedger Pro | Mandi Management</title>
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- PDF Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        :root {
+            --blue: #2563eb; --orange: #ea580c; --green: #10b981;
+            --slate: #f1f5f9; --dark: #0f172a; --shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background: var(--slate); color: var(--dark); padding-bottom: 80px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+        header { 
+            background: white; padding: 20px 30px; border-radius: 25px; display: flex; 
+            justify-content: space-between; align-items: center; margin-bottom: 25px; 
+            box-shadow: var(--shadow); border: 1px solid #e2e8f0;
+        }
+        .logo { display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 1.4rem; }
+        .logo span { color: var(--blue); }
+        .tabs { display: flex; background: #f1f5f9; padding: 5px; border-radius: 15px; gap: 5px; }
+        .tab-btn { 
+            border: none; padding: 10px 20px; border-radius: 12px; font-size: 12px; font-weight: 800; 
+            cursor: pointer; transition: 0.2s; color: #64748b; background: transparent;
+        }
+        .tab-btn.active { background: white; color: var(--dark); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .tab-btn.active.import-tab { color: var(--blue); }
+        .tab-btn.active.export-tab { color: var(--orange); }
+
+        .main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 25px; }
+        @media (max-width: 950px) { .main-grid { grid-template-columns: 1fr; } }
+
+        .card { background: white; padding: 30px; border-radius: 35px; box-shadow: var(--shadow); border: 1px solid #e2e8f0; margin-bottom: 25px; }
+        .hidden { display: none; }
+        
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        label { display: block; font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 5px; }
+        input, select { 
+            width: 100%; padding: 14px; border-radius: 15px; border: 2px solid #f1f5f9; 
+            background: #f8fafc; font-weight: 700; outline: none;
+        }
+
+        .ledger-box { background: #f8fafc; border-radius: 20px; padding: 20px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
+        .weight-list-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .weight-list-table th { font-size: 10px; color: #94a3b8; padding: 8px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        .weight-list-table td { padding: 10px 8px; font-weight: 800; border-bottom: 1px solid #f1f5f9; }
+
+        .summary { background: #0f172a; color: white; padding: 25px; border-radius: 25px; display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .summary div h3 { font-size: 1.6rem; font-weight: 900; }
+        .due-val { color: #fb7185; }
+
+        .btn { border: none; padding: 16px; border-radius: 18px; font-weight: 900; cursor: pointer; transition: 0.2s; text-transform: uppercase; flex: 1; }
+        .btn-blue { background: var(--blue); color: white; }
+        .btn-orange { background: var(--orange); color: white; }
+        .btn-pdf { background: #f1f5f9; color: #475569; padding: 10px 15px; font-size: 10px; border-radius: 12px; display: flex; align-items: center; gap: 5px; }
+
+        .history-table { width: 100%; border-collapse: collapse; }
+        .history-table th { font-size: 10px; color: #94a3b8; text-transform: uppercase; padding: 15px; text-align: left; border-bottom: 2px solid #f1f5f9; }
+        .history-table td { padding: 15px; font-size: 12px; font-weight: 700; border-bottom: 1px solid #f8fafc; }
+        .badge { padding: 4px 10px; border-radius: 8px; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+        .badge-in { background: #dbeafe; color: var(--blue); }
+        .badge-out { background: #ffedd5; color: var(--orange); }
+        .settle-btn { background: #ecfdf5; color: #10b981; border: 1px solid #d1fae5; padding: 5px 10px; border-radius: 8px; font-size: 9px; font-weight: 900; cursor: pointer; }
+
+        /* Sidebar & Result Card */
+        .sidebar-card { background: #1e293b; color: white; padding: 25px; border-radius: 30px; margin-bottom: 15px; }
+        .progress { height: 8px; background: #334155; border-radius: 10px; margin-top: 15px; overflow: hidden; display: flex; }
+        .result-card { background: white; padding: 20px; border-radius: 25px; border: 2px solid #e2e8f0; text-align: center; }
+        .result-label { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #94a3b8; margin-bottom: 5px; }
+        .result-val { font-size: 1.8rem; font-weight: 900; }
+        .profit { color: var(--green); }
+        .loss { color: #f87171; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="logo"><i data-lucide="scale"></i> VEG<span>LEDGER</span></div>
+        <div class="tabs">
+            <button class="tab-btn active import-tab" onclick="switchTab('import')">IMPORT</button>
+            <button class="tab-btn export-tab" onclick="switchTab('export')">EXPORT</button>
+            <button class="tab-btn history-tab" onclick="switchTab('history')">HISTORY</button>
+        </div>
+    </header>
+
+    <div class="main-grid">
+        <main>
+            <!-- IMPORT SECTION -->
+            <div id="import-section" class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2><i data-lucide="user" style="color:var(--blue)"></i> Farmer Procurement</h2>
+                    <button class="btn-pdf" onclick="generateFarmerPDF()"><i data-lucide="download"></i> PDF SLIP</button>
+                </div>
+
+                <div class="form-row">
+                    <div><label>Farmer Name</label><input type="text" id="farmer-name" placeholder="Enter name"></div>
+                    <div><label>Vegetable</label><select id="import-veg" class="veg-dropdown"></select></div>
+                </div>
+
+                <div class="ledger-box">
+                    <label>Weight Entry (Excel Mode)</label>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <input type="number" id="cur-weight" placeholder="kg" onkeypress="if(event.key==='Enter') addImportWeight()">
+                        <button onclick="addImportWeight()" class="btn btn-blue" style="padding:10px 20px; border-radius:12px">ADD</button>
+                    </div>
+                    <table class="weight-list-table">
+                        <thead><tr><th>No.</th><th>Weight (kg)</th><th>Del</th></tr></thead>
+                        <tbody id="weight-list-body"></tbody>
+                    </table>
+                </div>
+
+                <div class="form-row">
+                    <div><label>Cost per kg (₹)</label><input type="number" id="import-rate" oninput="calcImport()"></div>
+                    <div><label>Amount Issued (₹)</label><input type="number" id="import-paid" oninput="calcImport()"></div>
+                </div>
+
+                <div class="summary">
+                    <div><p style="color:#64748b; font-size:10px">TOTAL PAYABLE</p><h3 id="import-total-txt">₹0</h3></div>
+                    <div style="text-align:right"><p style="color:#64748b; font-size:10px">DUE BALANCE</p><h3 id="import-due-txt" class="due-val">₹0</h3></div>
+                </div>
+                <button class="btn btn-blue" onclick="saveImport()">Save Farmer Record</button>
+            </div>
+
+            <!-- EXPORT SECTION -->
+            <div id="export-section" class="card hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2><i data-lucide="shopping-bag" style="color:var(--orange)"></i> Market Sale</h2>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-pdf" onclick="generateExportPDF('sale')"><i data-lucide="file-text"></i> SALE BILL</button>
+                        <button class="btn-pdf" onclick="generateExportPDF('trans')"><i data-lucide="truck"></i> TRANS BILL</button>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div><label>Retailer Name</label><input type="text" id="ret-name" placeholder="Enter name"></div>
+                    <div><label>Vegetable</label><select id="export-veg" class="veg-dropdown"></select></div>
+                </div>
+
+                <div class="form-row">
+                    <div><label>Weight (kg)</label><input type="number" id="ret-weight" oninput="calcExport()"></div>
+                    <div><label>Sell Price / kg</label><input type="number" id="ret-rate" oninput="calcExport()"></div>
+                </div>
+
+                <div class="ledger-box" style="border-color: #ffedd5;">
+                    <label style="color:var(--orange)">Logistics (Per Bag)</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                        <div><label>Total Bags</label><input type="number" id="ret-bags" oninput="calcExport()"></div>
+                        <div><label>Trans/Bag</label><input type="number" id="ret-trans" oninput="calcExport()"></div>
+                        <div><label>Tax/Bag</label><input type="number" id="ret-tax" oninput="calcExport()"></div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Amount Collected (₹)</label>
+                    <input type="number" id="ret-paid" oninput="calcExport()">
+                </div>
+
+                <div class="summary" style="background:#1e293b">
+                    <div><p style="color:#64748b; font-size:10px">NET REVENUE</p><h3 id="ret-total-txt">₹0</h3></div>
+                    <div style="text-align:right"><p style="color:#64748b; font-size:10px">RETAILER DUE</p><h3 id="ret-due-txt" style="color:var(--green)">₹0</h3></div>
+                </div>
+                <button class="btn btn-orange" onclick="saveExport()">Submit Sale Record</button>
+            </div>
+
+            <!-- HISTORY SECTION -->
+            <div id="history-section" class="card hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2><i data-lucide="history"></i> 90-Day History</h2>
+                    <button class="btn-pdf" style="background:var(--dark); color:white" onclick="generateFullHistoryPDF()"><i data-lucide="download"></i> DOWNLOAD ALL</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="history-table">
+                        <thead><tr><th>Type</th><th>Entity</th><th>Item</th><th>Weight</th><th>Value</th><th>Due</th><th>Actions</th></tr></thead>
+                        <tbody id="history-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <aside>
+            <div class="sidebar-card">
+                <label style="color:#94a3b8">Inward vs Outward Dues</label>
+                <div style="margin-top: 15px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span>Farmer Debt</span><span id="stat-debt" style="color:#f87171">₹0</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>Market Credit</span><span id="stat-credit" style="color:var(--green)">₹0</span></div>
+                </div>
+                <div class="progress">
+                    <div id="bar-debt" style="background:#f87171; width: 0%;"></div>
+                    <div id="bar-credit" style="background:var(--green); width: 0%;"></div>
+                </div>
+            </div>
+
+            <!-- NEW FINAL PROFIT/LOSS SECTION -->
+            <div class="result-card">
+                <p class="result-label" id="final-label">Calculating Balance...</p>
+                <h2 id="final-result-val" class="result-val">₹0</h2>
+                <p style="font-size:9px; color:#94a3b8; margin-top:5px; font-weight:700">Total Revenue - Total Purchase Cost</p>
+            </div>
+
+            <div class="card" style="padding: 20px; margin-top:20px">
+                <label>Recent Alerts</label>
+                <div id="pending-box" style="font-size: 11px; font-weight: 700; margin-top: 10px; color:#64748b"></div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<script>
+    const vegetables = ["Ladies’ finger", "Beans", "Tomatoes", "Sweet potatoes", "Onions", "Potatoes", "Chillies", "Cabbage", "Carrot", "Brinjal"];
+    let currentWeights = [];
+    let records = JSON.parse(localStorage.getItem('veg_ledger_db_v4')) || [];
+
+    window.onload = () => {
+        populateDropdowns();
+        renderStats();
+        lucide.createIcons();
+    };
+
+    function populateDropdowns() {
+        document.querySelectorAll('.veg-dropdown').forEach(select => {
+            select.innerHTML = vegetables.map(v => `<option value="${v}">${v}</option>`).join('');
+        });
+    }
+
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('main > div').forEach(d => d.classList.add('hidden'));
+        document.getElementById(tab + '-section').classList.remove('hidden');
+        document.querySelector('.' + tab + '-tab').classList.add('active');
+        if(tab === 'history') renderHistory();
+        lucide.createIcons();
+    }
+
+    // --- Import Logic ---
+    function addImportWeight() {
+        const val = parseFloat(document.getElementById('cur-weight').value);
+        if(val > 0) {
+            currentWeights.push(val);
+            document.getElementById('cur-weight').value = '';
+            renderWeightTable();
+            calcImport();
+        }
+    }
+
+    function renderWeightTable() {
+        const tbody = document.getElementById('weight-list-body');
+        tbody.innerHTML = currentWeights.map((w, i) => `
+            <tr>
+                <td>${i+1}</td>
+                <td>${w} kg</td>
+                <td><button onclick="removeWeight(${i})" style="border:none; background:none; color:red; cursor:pointer">×</button></td>
+            </tr>
+        `).join('');
+    }
+
+    function removeWeight(i) {
+        currentWeights.splice(i, 1);
+        renderWeightTable();
+        calcImport();
+    }
+
+    function calcImport() {
+        const totalW = currentWeights.reduce((a, b) => a + b, 0);
+        const rate = parseFloat(document.getElementById('import-rate').value) || 0;
+        const paid = parseFloat(document.getElementById('import-paid').value) || 0;
+        const total = totalW * rate;
+        document.getElementById('import-total-txt').innerText = '₹' + total.toLocaleString();
+        document.getElementById('import-due-txt').innerText = '₹' + (total - paid).toLocaleString();
+    }
+
+    function saveImport() {
+        const name = document.getElementById('farmer-name').value;
+        const veg = document.getElementById('import-veg').value;
+        if(!name || currentWeights.length === 0) return alert("Enter Farmer Name and Weights");
+
+        const totalW = currentWeights.reduce((a, b) => a + b, 0);
+        const rate = parseFloat(document.getElementById('import-rate').value) || 0;
+        const paid = parseFloat(document.getElementById('import-paid').value) || 0;
+
+        const record = {
+            id: Date.now(), type: 'IMPORT', name, veg, totalW, 
+            rate, paid, totalVal: totalW * rate,
+            due: (totalW * rate) - paid,
+            date: new Date().toLocaleDateString(),
+            weights: [...currentWeights]
+        };
+
+        records.push(record);
+        updateDB();
+        currentWeights = [];
+        document.getElementById('farmer-name').value = '';
+        renderWeightTable();
+        calcImport();
+        alert("Farmer procurement saved.");
+    }
+
+    // --- Export Logic ---
+    function calcExport() {
+        const w = parseFloat(document.getElementById('ret-weight').value) || 0;
+        const rate = parseFloat(document.getElementById('ret-rate').value) || 0;
+        const bags = parseFloat(document.getElementById('ret-bags').value) || 0;
+        const trans = parseFloat(document.getElementById('ret-trans').value) || 0;
+        const tax = parseFloat(document.getElementById('ret-tax').value) || 0;
+        const paid = parseFloat(document.getElementById('ret-paid').value) || 0;
+
+        const logistics = bags * (trans + tax);
+        const netValue = (w * rate) - logistics;
+        document.getElementById('ret-total-txt').innerText = '₹' + netValue.toLocaleString();
+        document.getElementById('ret-due-txt').innerText = '₹' + (netValue - paid).toLocaleString();
+    }
+
+    function saveExport() {
+        const name = document.getElementById('ret-name').value;
+        const w = parseFloat(document.getElementById('ret-weight').value) || 0;
+        const rate = parseFloat(document.getElementById('ret-rate').value) || 0;
+        if(!name || !w) return alert("Enter Retailer Name and Weight");
+
+        const bags = parseFloat(document.getElementById('ret-bags').value) || 0;
+        const trans = parseFloat(document.getElementById('ret-trans').value) || 0;
+        const tax = parseFloat(document.getElementById('ret-tax').value) || 0;
+        const paid = parseFloat(document.getElementById('ret-paid').value) || 0;
+
+        const logistics = bags * (trans + tax);
+        const netValue = (w * rate) - logistics;
+
+        const record = {
+            id: Date.now(), type: 'EXPORT', name, veg: document.getElementById('export-veg').value,
+            totalW: w, rate, bags, transRate: trans, taxRate: tax, paid,
+            totalVal: netValue, due: netValue - paid, date: new Date().toLocaleDateString()
+        };
+
+        records.push(record);
+        updateDB();
+        document.getElementById('ret-name').value = '';
+        calcExport();
+        alert("Retailer sale saved.");
+    }
+
+    // --- Stats & Ledger ---
+    function updateDB() {
+        localStorage.setItem('veg_ledger_db_v4', JSON.stringify(records));
+        renderStats();
+    }
+
+    function renderHistory() {
+        const tbody = document.getElementById('history-tbody');
+        tbody.innerHTML = records.sort((a,b)=>b.id-a.id).map(r => `
+            <tr>
+                <td><span class="badge badge-${r.type === 'IMPORT' ? 'in' : 'out'}">${r.type}</span></td>
+                <td>${r.name}<br><small style="color:#94a3b8">${r.date}</small></td>
+                <td>${r.veg}</td>
+                <td>${r.totalW} kg</td>
+                <td>₹${r.totalVal.toLocaleString()}</td>
+                <td style="color:${r.due > 0 ? '#f87171' : '#10b981'}">₹${r.due.toLocaleString()}</td>
+                <td>${r.due > 0 ? `<button class="settle-btn" onclick="settleDue(${r.id})">SETTLE</button>` : '—'}</td>
+            </tr>
+        `).join('');
+    }
+
+    function settleDue(id) {
+        records = records.map(r => r.id === id ? {...r, due: 0, paid: r.totalVal} : r);
+        updateDB();
+        renderHistory();
+    }
+
+    function renderStats() {
+        const importCost = records.filter(r => r.type === 'IMPORT').reduce((a, b) => a + b.totalVal, 0);
+        const exportRevenue = records.filter(r => r.type === 'EXPORT').reduce((a, b) => a + b.totalVal, 0);
+        
+        const farmerDebt = records.filter(r => r.type === 'IMPORT').reduce((a, b) => a + b.due, 0);
+        const marketCredit = records.filter(r => r.type === 'EXPORT').reduce((a, b) => a + b.due, 0);
+        
+        document.getElementById('stat-debt').innerText = '₹' + farmerDebt.toLocaleString();
+        document.getElementById('stat-credit').innerText = '₹' + marketCredit.toLocaleString();
+
+        const totalDues = farmerDebt + marketCredit + 1;
+        document.getElementById('bar-debt').style.width = (farmerDebt/totalDues*100) + '%';
+        document.getElementById('bar-credit').style.width = (marketCredit/totalDues*100) + '%';
+
+        // FINAL PROFIT/LOSS CALCULATION
+        const finalBalance = exportRevenue - importCost;
+        const resultLabel = document.getElementById('final-label');
+        const resultVal = document.getElementById('final-result-val');
+
+        resultVal.innerText = '₹' + Math.abs(finalBalance).toLocaleString();
+        if (finalBalance >= 0) {
+            resultLabel.innerText = "FINAL NET PROFIT";
+            resultVal.className = "result-val profit";
+        } else {
+            resultLabel.innerText = "FINAL NET LOSS";
+            resultVal.className = "result-val loss";
+        }
+
+        const alerts = records.filter(r => r.due > 0).slice(0, 3);
+        document.getElementById('pending-box').innerHTML = alerts.map(x => `
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px">
+                <span>${x.name}</span>
+                <span style="color:${x.type==='IMPORT'?'#f87171':'var(--green)'}">₹${x.due}</span>
+            </div>
+        `).join('') || 'All ledgers settled.';
+    }
+
+    // --- PDF Generators ---
+    function generateFarmerPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const name = document.getElementById('farmer-name').value || "Unnamed Farmer";
+        const totalW = currentWeights.reduce((a, b) => a + b, 0);
+        const rate = document.getElementById('import-rate').value;
+        const paid = document.getElementById('import-paid').value;
+
+        doc.setFontSize(18).text("FARMER PURCHASE RECEIPT", 105, 20, {align:'center'});
+        doc.setFontSize(10).text(`Name: ${name} | Date: ${new Date().toLocaleDateString()}`, 15, 30);
+
+        doc.autoTable({
+            startY: 40,
+            head: [['Sl No.', 'Weight (kg)']],
+            body: currentWeights.map((w, i) => [i+1, w])
+        });
+
+        const y = doc.lastAutoTable.finalY + 10;
+        doc.text(`Total Weight: ${totalW} kg`, 15, y);
+        doc.text(`Rate: Rs. ${rate}/kg`, 15, y+5);
+        doc.text(`Paid: Rs. ${paid}`, 15, y+10);
+        doc.setFontSize(14).text(`TOTAL BILL: Rs. ${(totalW * rate).toFixed(2)}`, 15, y+20);
+
+        doc.save(`Farmer_${name}.pdf`);
+    }
+
+    function generateExportPDF(type) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const name = document.getElementById('ret-name').value || "Unnamed Retailer";
+        const weight = document.getElementById('ret-weight').value;
+        const rate = document.getElementById('ret-rate').value;
+        const bags = document.getElementById('ret-bags').value;
+        const trans = document.getElementById('ret-trans').value;
+        const tax = document.getElementById('ret-tax').value;
+        
+        const title = type === 'sale' ? "RETAILER SALE INVOICE" : "LOGISTICS & TAX BILL";
+        doc.setFontSize(18).text(title, 105, 20, {align:'center'});
+        doc.setFontSize(10).text(`Retailer: ${name} | Date: ${new Date().toLocaleDateString()}`, 15, 30);
+
+        if(type === 'sale') {
+            doc.autoTable({
+                startY: 40,
+                head: [['Item', 'Weight', 'Rate', 'Total']],
+                body: [[document.getElementById('export-veg').value, `${weight} kg`, `Rs. ${rate}`, `Rs. ${(weight*rate).toFixed(2)}`]]
+            });
+        } else {
+            doc.autoTable({
+                startY: 40,
+                head: [['Charge Type', 'Quantity', 'Rate/Bag', 'Subtotal']],
+                body: [
+                    ['Transport', `${bags} Bags`, `Rs. ${trans}`, `Rs. ${(bags*trans).toFixed(2)}`],
+                    ['Tax/Load', `${bags} Bags`, `Rs. ${tax}`, `Rs. ${(bags*tax).toFixed(2)}`]
+                ]
+            });
+        }
+        doc.save(`${type === 'sale' ? 'Sale' : 'Logistics'}_${name}.pdf`);
+    }
+
+    function generateFullHistoryPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('l', 'mm', 'a4');
+        doc.text("FULL BUSINESS LEDGER - 90 DAYS", 148, 20, {align:'center'});
+        doc.autoTable({
+            startY: 30,
+            head: [['Date', 'Type', 'Entity Name', 'Commodity', 'Weight', 'Net Value', 'Due Status']],
+            body: records.sort((a,b)=>b.id-a.id).map(r => [
+                r.date, r.type, r.name, r.veg, `${r.totalW} kg`, `Rs. ${r.totalVal.toLocaleString()}`, r.due > 0 ? `Rs. ${r.due.toLocaleString()}` : 'SETTLED'
+            ])
+        });
+        doc.save("Full_Business_Ledger.pdf");
+    }
+</script>
+
+</body>
+</html>
